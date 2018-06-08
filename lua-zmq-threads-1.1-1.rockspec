@@ -1,16 +1,16 @@
 -- This file was automatically generated for the LuaDist project.
 
 package = "lua-zmq-threads"
-version = "1.0-2"
+version = "1.1-1"
 -- LuaDist source
 source = {
-  tag = "1.0-2",
+  tag = "1.1-1",
   url = "git://github.com/LuaDist-testing/lua-zmq-threads.git"
 }
 -- Original source
 -- source = {
 -- 	url = "git://github.com/Neopallium/lua-zmq.git",
--- 	branch = "v1.0",
+-- 	branch = "v1.1",
 -- }
 description = {
 	summary = "Lua bindings to zeromq2, with LuaJIT2 FFI support.",
