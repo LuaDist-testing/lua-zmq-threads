@@ -29,10 +29,13 @@ local message_count = tonumber(arg[3])
 
 local zmq = require"zmq"
 
+local socket = require"socket"
+local time = socket.gettime
+
 local ctx = zmq.init(1)
-local s = assert(ctx:socket(zmq.SUB))
-assert(s:setopt(zmq.SUBSCRIBE, ""))
-assert(s:bind(bind_to))
+local s = ctx:socket(zmq.SUB)
+s:setopt(zmq.SUBSCRIBE, "");
+s:bind(bind_to)
 
 print(string.format("message size: %i [B]", message_size))
 print(string.format("message count: %i", message_count))
@@ -41,21 +44,22 @@ local msg
 msg = zmq.zmq_msg_t()
 assert(s:recv_msg(msg))
 
-local timer = zmq.stopwatch_start()
+local start_time = time()
 
 for i = 1, message_count - 1 do
 	assert(s:recv_msg(msg))
 	assert(msg:size() == message_size, "Invalid message size")
 end
 
-local elapsed = timer:stop()
+local end_time = time()
 
 s:close()
 ctx:term()
 
+local elapsed = end_time - start_time
 if elapsed == 0 then elapsed = 1 end
 
-local throughput = message_count / (elapsed / 1000000)
+local throughput = message_count / elapsed
 local megabits = throughput * message_size * 8 / 1000000
 
 print(string.format("mean throughput: %i [msg/s]", throughput))

@@ -18,32 +18,15 @@
 -- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 -- THE SOFTWARE.
 
-if not arg[3] then
-    print("usage: lua remote_thr.lua <connect-to> <message-size> <message-count>")
-    os.exit()
-end
-
-local connect_to = arg[1]
-local message_size = tonumber(arg[2])
-local message_count = tonumber(arg[3])
-
-local zmq = require"zmq"
+require("zmq")
 
 local ctx = zmq.init(1)
-local s = assert(ctx:socket(zmq.PUSH))
-assert(s:connect(connect_to))
+local s = ctx:socket(zmq.PUB)
 
-zmq.sleep(1)
+s:bind("tcp://lo:5555")
 
-local data = ("0"):rep(message_size)
-local msg_data = zmq.zmq_msg_t.init_data(data)
-local msg = zmq.zmq_msg_t.init()
-
-for i = 1, message_count do
-	msg:copy(msg_data)
-	assert(s:send_msg(msg))
+local msg_id = 1
+while true do
+    s:send(tostring(msg_id))
+    msg_id = msg_id + 1
 end
-
-s:close()
-ctx:term()
-

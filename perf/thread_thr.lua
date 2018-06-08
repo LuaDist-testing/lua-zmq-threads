@@ -24,44 +24,47 @@ end
 
 local message_size = tonumber(arg[1] or 1)
 local message_count = tonumber(arg[2] or 100000)
-local bind_to = arg[3] or 'inproc://thread_thr_test'
-local connect_to = arg[4] or 'inproc://thread_thr_test'
+local bind_to = arg[3] or 'inproc://thread_lat_test'
+local connect_to = arg[4] or 'inproc://thread_lat_test'
 
 local zmq = require"zmq"
 local zthreads = require"zmq.threads"
+
+local socket = require"socket"
+local time = socket.gettime
 
 local child_code = [[
 	local connect_to, message_size, message_count = ...
 
 	local zmq = require"zmq"
 	local zthreads = require"zmq.threads"
+	local socket = require"socket"
+	local time = socket.gettime
 
 	local ctx = zthreads.get_parent_ctx()
-	local s = assert(ctx:socket(zmq.PUB))
-	-- for ZeroMQ 3.x need to change HWM option.
-	assert(s:set_hwm(0))
-	assert(s:connect(connect_to))
+	local s = ctx:socket(zmq.PUB)
+	s:connect(connect_to)
 
 	local data = ("0"):rep(message_size)
-	local msg_data = zmq.zmq_msg_t.init_data(data)
-	local msg = zmq.zmq_msg_t.init()
+	local msg = zmq.zmq_msg_t.init_size(message_size)
 
-	local timer = zmq.stopwatch_start()
+	local start_time = time()
 
 	for i = 1, message_count do
-		msg:copy(msg_data)
+		msg:set_data(data)
 		assert(s:send_msg(msg))
 	end
 
-	local elapsed = timer:stop()
+	local end_time = time()
 
 	s:close()
 
+	local elapsed = end_time - start_time
 	if elapsed == 0 then elapsed = 1 end
-
-	local throughput = message_count / (elapsed / 1000000)
+	
+	local throughput = message_count / elapsed
 	local megabits = throughput * message_size * 8 / 1000000
-
+	
 	print(string.format("Sender mean throughput: %i [msg/s]", throughput))
 	print(string.format("Sender mean throughput: %.3f [Mb/s]", megabits))
 
@@ -69,9 +72,9 @@ local child_code = [[
 ]]
 
 local ctx = zmq.init(1)
-local s = assert(ctx:socket(zmq.SUB))
-assert(s:setopt(zmq.SUBSCRIBE, ""))
-assert(s:bind(bind_to))
+local s = ctx:socket(zmq.SUB)
+s:setopt(zmq.SUBSCRIBE, "");
+s:bind(bind_to)
 
 print(string.format("message size: %i [B]", message_size))
 print(string.format("message count: %i", message_count))
@@ -83,22 +86,23 @@ local msg
 msg = zmq.zmq_msg_t()
 assert(s:recv_msg(msg))
 
-local timer = zmq.stopwatch_start()
+local start_time = time()
 
 for i = 1, message_count - 1 do
 	assert(s:recv_msg(msg))
 	assert(msg:size() == message_size, "Invalid message size")
 end
 
-local elapsed = timer:stop()
+local end_time = time()
 
 s:close()
 child_thread:join()
 ctx:term()
 
+local elapsed = end_time - start_time
 if elapsed == 0 then elapsed = 1 end
 
-local throughput = message_count / (elapsed / 1000000)
+local throughput = message_count / elapsed
 local megabits = throughput * message_size * 8 / 1000000
 
 print(string.format("mean throughput: %i [msg/s]", throughput))

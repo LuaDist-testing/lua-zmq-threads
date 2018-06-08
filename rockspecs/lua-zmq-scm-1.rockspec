@@ -11,35 +11,11 @@ description = {
 dependencies = {
 	"lua >= 5.1",
 }
-external_dependencies = {
-	platforms = {
-		windows = {
-			ZEROMQ = {
-				library = "libzmq",
-			}
-		},
-	},
-	ZEROMQ = {
-		header = "zmq.h",
-		library = "zmq",
-	}
-}
 build = {
-	platforms = {
-		windows = {
-			modules = {
-				zmq = {
-					libraries = {"libzmq"},
-				}
-			}
-		},
-	},
 	type = "builtin",
 	modules = {
 		zmq = {
 			sources = {"src/pre_generated-zmq.nobj.c"},
-			incdirs = "$(ZEROMQ_INCDIR)",
-			libdirs = "$(ZEROMQ_LIBDIR)",
 			libraries = {"zmq"},
 		},
 	},

@@ -18,24 +18,15 @@
 -- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 -- THE SOFTWARE.
 
-local zmq = require"zmq"
+require("zmq")
 
-local N=tonumber(arg[1] or 100)
-
-local ctx = zmq.init()
+local ctx = zmq.init(1)
 local s = ctx:socket(zmq.REQ)
 
 s:connect("tcp://localhost:5555")
 
-for i=1,N do
-	s:send("SELECT * FROM mytable")
-	local data, err = s:recv()
-	if data then
-		print(data)
-	else
-		print("s:recv() error:", err)
-	end
-end
+s:send("SELECT * FROM mytable")
+print(s:recv())
 
 s:close()
 ctx:term()

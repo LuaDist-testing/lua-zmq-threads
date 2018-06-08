@@ -30,22 +30,18 @@ local message_count = tonumber(arg[3])
 local zmq = require"zmq"
 
 local ctx = zmq.init(1)
-local s = assert(ctx:socket(zmq.PUB))
--- for ZeroMQ 3.x need to change HWM option.
-assert(s:set_hwm(0))
-assert(s:connect(connect_to))
-
-zmq.sleep(1)
+local s = ctx:socket(zmq.PUB)
+s:connect(connect_to)
 
 local data = ("0"):rep(message_size)
-local msg_data = zmq.zmq_msg_t.init_data(data)
-local msg = zmq.zmq_msg_t.init()
+local msg = zmq.zmq_msg_t.init_size(message_size)
 
 for i = 1, message_count do
-	msg:copy(msg_data)
+	msg:set_data(data)
 	assert(s:send_msg(msg))
 end
 
+--os.execute("sleep " .. 10)
+
 s:close()
 ctx:term()
-

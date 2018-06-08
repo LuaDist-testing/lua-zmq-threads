@@ -18,14 +18,14 @@
 -- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 -- THE SOFTWARE.
 
-local zmq = require"zmq"
+require("zmq")
 
-local ctx = zmq.init()
+local ctx = zmq.init(1)
 local s = ctx:socket(zmq.SUB)
 s:setopt(zmq.SUBSCRIBE, "")
 s:connect("tcp://localhost:5555")
 while true do
-	local msg = s:recv()
-	local msg_id = tonumber(msg)
-	if math.mod(msg_id, 10000) == 0 then print(msg_id) end
+    local msg = s:recv()
+    local msg_id = tonumber(msg)
+    if math.mod(msg_id, 10000) == 0 then print(msg_id) end
 end

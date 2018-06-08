@@ -19,10 +19,13 @@
 -- THE SOFTWARE.
 
 object "ZMQ_Ctx" {
-	sys_include"string.h",
 	error_on_null = "get_zmq_strerror()",
+	ffi_cdef [[
+typedef void * ZMQ_Ctx;
+]],
+
 	c_source [[
-typedef struct ZMQ_Ctx ZMQ_Ctx;
+typedef void * ZMQ_Ctx;
 ]],
 	destructor "term" {
 		c_method_call "ZMQ_Error"  "zmq_term" {}
@@ -34,15 +37,7 @@ typedef struct ZMQ_Ctx ZMQ_Ctx;
 ]]
 	},
 	method "socket" {
-		c_method_call "!ZMQ_Socket *"  "zmq_socket" { "int", "type"}
-	},
-	method "set" {
-		if_defs = { "VERSION_3_2", "VERSION_4_0" },
-		c_method_call "int" "zmq_ctx_set" { "int", "flag", "int", "value" } 
-	},
-	method "get" {
-		if_defs = { "VERSION_3_2", "VERSION_4_0" },
-		c_method_call "int" "zmq_ctx_get" { "int", "flag" }
+		c_method_call "!ZMQ_Socket"  "zmq_socket" { "int", "type"}
 	},
 }
 

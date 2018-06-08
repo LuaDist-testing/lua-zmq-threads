@@ -9,8 +9,8 @@ description = {
 	license = "MIT/X11",
 }
 dependencies = {
-	"lua-zmq = scm-1",
-	"lua-llthreads = scm-0",
+	"lua-zmq",
+	"lua-llthreads",
 }
 build = {
 	type = "none",

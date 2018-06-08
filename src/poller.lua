@@ -34,36 +34,43 @@ local poller_mt = {}
 poller_mt.__index = poller_mt
 
 function poller_mt:add(sock, events, cb)
-	local id = self.poller:add(sock, events)
-	self.callbacks[id] = function(revents) return cb(sock, revents) end
+	self.poller:add(sock, events)
+	self.callbacks[sock] = cb
 end
 
 function poller_mt:modify(sock, events, cb)
-	local id
 	if events ~= 0 and cb then
-		id = self.poller:modify(sock, events)
-		self.callbacks[id] = function(revents) return cb(sock, revents) end
+		self.callbacks[sock] = cb
+		self.poller:modify(sock, events)
 	else
-		id = self:remove(sock)
-		self.callbacks[id] = nil
+		self:remove(sock)
 	end
 end
 
 function poller_mt:remove(sock)
-	local id = self.poller:remove(sock)
-	self.callbacks[id] = nil
+	self.poller:remove(sock)
+	self.callbacks[sock] = nil
 end
 
 function poller_mt:poll(timeout)
 	local poller = self.poller
-	local count, err = poller:poll(timeout)
-	if not count then
+	local status, err = poller:poll(timeout)
+	if not status then
 		return nil, err
 	end
 	local callbacks = self.callbacks
-	for i=1,count do
-		local id, revents = poller:next_revents_idx()
-		callbacks[id](revents)
+	local count = 0
+	while true do
+		local sock, revents = poller:next_revents()
+		if not sock then
+			break
+		end
+		local cb = callbacks[sock]
+		if not cb then
+			error("Missing callback for sock:" .. tostring(sock))
+		end
+		cb(sock, revents)
+		count = count + 1
 	end
 	return count
 end
@@ -71,7 +78,7 @@ end
 function poller_mt:start()
 	self.is_running = true
 	while self.is_running do
-		status, err = self:poll(-1)
+		local status, err = self:poll(-1)
 		if not status then
 			return false, err
 		end
@@ -83,15 +90,14 @@ function poller_mt:stop()
 	self.is_running = false
 end
 
-local M = {}
+module(...)
 
-function M.new(pre_alloc)
+function new(pre_alloc)
 	return setmetatable({
 		poller = zmq.ZMQ_Poller(pre_alloc),
-		callbacks = {},
+		callbacks = setmetatable({}, {__mode="k"}),
 	}, poller_mt)
 end
 
-zmq.poller = M
-return setmetatable(M, {__call = function(tab, ...) return M.new(...) end})
+setmetatable(_M, {__call = function(tab, ...) return new(...) end})
 

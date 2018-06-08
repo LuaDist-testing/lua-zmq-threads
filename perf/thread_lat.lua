@@ -30,6 +30,9 @@ local connect_to = arg[4] or 'inproc://thread_lat_test'
 local zmq = require"zmq"
 local zthreads = require"zmq.threads"
 
+local socket = require"socket"
+local time = socket.gettime
+
 local child_code = [[
 	local connect_to, message_size, roundtrip_count = ...
 
@@ -52,8 +55,8 @@ local child_code = [[
 ]]
 
 local ctx = zmq.init(1)
-local s = assert(ctx:socket(zmq.REQ))
-assert(s:bind(bind_to))
+local s = ctx:socket(zmq.REQ)
+s:bind(bind_to)
 
 local child_thread = zthreads.runstring(ctx, child_code, connect_to, message_size, roundtrip_count)
 child_thread:start()
@@ -64,9 +67,7 @@ local msg = zmq.zmq_msg_t.init_size(message_size)
 print(string.format("message size: %i [B]", message_size))
 print(string.format("roundtrip count: %i", roundtrip_count))
 
-zmq.sleep(2) -- wait for child thread to connect.
-
-local timer = zmq.stopwatch_start()
+local start_time = time()
 
 for i = 1, roundtrip_count do
 	assert(s:send_msg(msg))
@@ -74,16 +75,14 @@ for i = 1, roundtrip_count do
 	assert(msg:size() == message_size, "Invalid message size")
 end
 
-local elapsed = timer:stop()
+local end_time = time()
 
 s:close()
 child_thread:join()
 ctx:term()
 
-local latency = elapsed / roundtrip_count / 2
+local elapsed = end_time - start_time
+local latency = elapsed * 1000000 / roundtrip_count / 2
 
 print(string.format("mean latency: %.3f [us]", latency))
-local secs = elapsed / (1000 * 1000)
-print(string.format("elapsed = %f", secs))
-print(string.format("msg/sec = %f", roundtrip_count / secs))
 

@@ -19,15 +19,23 @@
 -- THE SOFTWARE.
 
 if not arg[3] then
-    print("usage: lua remote_lat.lua <connect-to> <message-size> <roundtrip-count>")
+    print("usage: lua remote_lat.lua <connect-to> <message-size> <roundtrip-count> [<zmq-module>]")
     os.exit()
 end
 
 local connect_to = arg[1]
 local message_size = tonumber(arg[2])
 local roundtrip_count = tonumber(arg[3])
+local mod = arg[4] or "zmq"
+if mod == 'disable_ffi' then
+	disable_ffi = true
+	mod = 'zmq'
+end
 
-local zmq = require'zmq'
+local zmq = require(mod)
+
+local socket = require"socket"
+local time = socket.gettime
 
 local ctx = zmq.init(1)
 local s = ctx:socket(zmq.REQ)
@@ -35,7 +43,7 @@ s:connect(connect_to)
 
 local msg = ("0"):rep(message_size)
 
-local timer = zmq.stopwatch_start()
+local start_time = time()
 
 for i = 1, roundtrip_count do
 	s:send(msg)
@@ -43,12 +51,13 @@ for i = 1, roundtrip_count do
 	assert(#msg == message_size, "Invalid message size")
 end
 
-local elapsed = timer:stop()
+local end_time = time()
 
 s:close()
 ctx:term()
 
-local latency = elapsed / roundtrip_count / 2
+local elapsed = end_time - start_time
+local latency = elapsed * 1000000 / roundtrip_count / 2
 
 print(string.format("message size: %i [B]", message_size))
 print(string.format("roundtrip count: %i", roundtrip_count))

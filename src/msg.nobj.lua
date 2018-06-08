@@ -21,56 +21,54 @@
 object "zmq_msg_t" {
 	-- store the `zmq_msg_t` structure in Lua userdata object
 	userdata_type = "embed",
-	implements "Buffer" {
-		implement_method "const_data" {
-			c_function = "zmq_msg_data"
-		},
-		implement_method "get_size" {
-			c_function = "zmq_msg_size"
-		},
-	},
-	implements "MutableBuffer" {
-		implement_method "data" {
-			c_function = "zmq_msg_data"
-		},
-		implement_method "get_size" {
-			c_function = "zmq_msg_size"
-		},
-	},
 --
 -- Define zmq_msq_t type & function API for FFI
 --
 	ffi_cdef[[
 
-struct zmq_msg_t
+typedef struct zmq_msg_t
 {
-  unsigned char _ [64];
-};
+	void *content;
+	unsigned char flags;
+	unsigned char vsm_size;
+	unsigned char vsm_data [30]; /* that '30' is from 'MAX_VSM_SIZE' */
+} zmq_msg_t;
+
+typedef void (zmq_free_fn) (void *data, void *hint);
 
 int zmq_msg_init (zmq_msg_t *msg);
 int zmq_msg_init_size (zmq_msg_t *msg, size_t size);
+int zmq_msg_init_data (zmq_msg_t *msg, void *data, size_t size, zmq_free_fn *ffn, void *hint);
 
 ]],
 	constructor "init" {
-		c_method_call "ZMQ_Error" "zmq_msg_init" {},
+		var_out{ "ZMQ_Error", "err" },
+		c_source[[
+	zmq_msg_t tmp;
+	${this} = &tmp;
+	${err} = zmq_msg_init(${this});
+]],
 	},
 	constructor "init_size" {
-		c_method_call "ZMQ_Error" "zmq_msg_init_size" { "size_t", "size" },
+		var_in{ "size_t", "size" },
+		var_out{ "ZMQ_Error", "err" },
+		c_source[[
+	zmq_msg_t tmp;
+	${this} = &tmp;
+	${err} = zmq_msg_init_size(${this}, ${size});
+]],
 	},
 	constructor "init_data" {
 		var_in{ "const char *", "data" },
-		c_method_call { "ZMQ_Error", "err" } "zmq_msg_init_size" { "size_t", "#data" },
+		var_out{ "ZMQ_Error", "err" },
 		c_source[[
+	zmq_msg_t tmp;
+	${this} = &tmp;
+	${err} = zmq_msg_init_size(${this}, ${data_len});
 	if(0 == ${err}) {
 		/* fill message */
 		memcpy(zmq_msg_data(${this}), ${data}, ${data_len});
 	}
-]],
-		ffi_source[[
-	if(0 == ${err}) then
-		-- fill message
-		ffi.copy(C.zmq_msg_data(${this}), ${data}, ${data_len})
-	end
 ]],
 	},
 	destructor {
@@ -145,7 +143,7 @@ int zmq_msg_init_size (zmq_msg_t *msg, size_t size);
 ]],
 	},
 	method "size" {
-		c_method_call { "size_t", "size", ffi_wrap = "tonumber"} "zmq_msg_size" {}
+		c_method_call "size_t" "zmq_msg_size" {}
 	},
 	method "__tostring" {
 		var_out{ "const char *", "data", has_length = true },

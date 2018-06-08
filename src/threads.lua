@@ -25,12 +25,24 @@
 local zmq = require"zmq"
 local llthreads = require"llthreads"
 
-local bootstrap_pre = [[
+local setmetatable = setmetatable
+local tonumber = tonumber
+local assert = assert
+
+local thread_mt = {}
+thread_mt.__index = thread_mt
+
+function thread_mt:start(detached)
+	return self.thread:start(detached)
+end
+
+function thread_mt:join()
+	return self.thread:join()
+end
+
+local bootstrap_code = [[
 local action, action_arg, parent_ctx = ...
 local func
-]]
-
-local bootstrap_post = [[
 
 -- copy parent ZeroMQ context to this child thread.
 local zmq = require"zmq"
@@ -57,38 +69,33 @@ end
 return func(select(4, ...))
 ]]
 
-local bootstrap_code = bootstrap_pre..bootstrap_post
-
 local function new_thread(ctx, action, action_arg, ...)
 	-- convert ZMQ_Ctx to lightuserdata.
 	if ctx then
 		ctx = ctx:lightuserdata()
 	end
-	return llthreads.new(bootstrap_code, action, action_arg, ctx, ...)
+	local thread = llthreads.new(bootstrap_code, action, action_arg, ctx, ...)
+	return setmetatable({
+		thread = thread,
+	}, thread_mt)
 end
 
-local M = {}
+module(...)
 
-function M.set_bootstrap_prelude(code)
-   bootstrap_code = bootstrap_pre .. code .. bootstrap_post
-end
-
-function M.runfile(ctx, file, ...)
+function runfile(ctx, file, ...)
 	return new_thread(ctx, 'runfile', file, ...)
 end
 
-function M.runstring(ctx, code, ...)
+function runstring(ctx, code, ...)
 	return new_thread(ctx, 'runstring', code, ...)
 end
 
 local parent_ctx = nil
-function M.set_parent_ctx(ctx)
+function set_parent_ctx(ctx)
 	parent_ctx = ctx
 end
 
-function M.get_parent_ctx(ctx)
+function get_parent_ctx(ctx)
 	return parent_ctx
 end
 
-zmq.threads = M
-return M
